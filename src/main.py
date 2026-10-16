@@ -1,6 +1,6 @@
-"""Análise exploratória da população de veículos elétricos.
+"""Análise exploratória completa da população de veículos elétricos (10 perguntas).
 
-O script reúne as análises desta etapa e salva os gráficos em ``output/graficos``.
+O script reúne as análises completas e salva os gráficos em ``output/graficos``.
 Execute a partir de qualquer pasta com:
     python src/main.py
 """
@@ -23,6 +23,8 @@ COLUNA_MARCA = "Make"
 COLUNA_ANO = "Model Year"
 COLUNA_CIDADE = "City"
 COLUNA_AUTONOMIA = "Electric Range"
+COLUNA_CAFV = "Clean Alternative Fuel Vehicle (CAFV) Eligibility"
+COLUNA_CONDADO = "County"
 
 
 def carregar_dados():
@@ -32,7 +34,7 @@ def carregar_dados():
 
     dados = pd.read_csv(CAMINHO_CSV, low_memory=False)
 
-    # Conferimos as colunas logo no início para apontar claramente se o CSV mudou.
+    # Conferimos as colunas essenciais logo no início.
     colunas_necessarias = {
         COLUNA_TIPO,
         COLUNA_MARCA,
@@ -44,10 +46,17 @@ def carregar_dados():
     if faltantes:
         raise ValueError(f"Colunas esperadas não encontradas no CSV: {sorted(faltantes)}")
 
-    # Remover espaços evita contar a mesma marca ou cidade como categorias diferentes.
+    # Remover espaços em branco para padronizar categorias de texto.
     for coluna in (COLUNA_TIPO, COLUNA_MARCA, COLUNA_CIDADE):
-        dados[coluna] = dados[coluna].astype("string").str.strip()
-        dados[coluna] = dados[coluna].replace("", pd.NA)
+        if coluna in dados.columns:
+            dados[coluna] = dados[coluna].astype("string").str.strip()
+            dados[coluna] = dados[coluna].replace("", pd.NA)
+
+    if COLUNA_CAFV in dados.columns:
+        dados[COLUNA_CAFV] = dados[COLUNA_CAFV].astype("string").str.strip()
+
+    if COLUNA_CONDADO in dados.columns:
+        dados[COLUNA_CONDADO] = dados[COLUNA_CONDADO].astype("string").str.strip()
 
     dados[COLUNA_ANO] = pd.to_numeric(dados[COLUNA_ANO], errors="coerce")
     dados[COLUNA_AUTONOMIA] = pd.to_numeric(dados[COLUNA_AUTONOMIA], errors="coerce")
@@ -63,6 +72,10 @@ def salvar_grafico(nome_arquivo):
     plt.close()
     print(f"Gráfico salvo em: {caminho.relative_to(PASTA_PROJETO)}")
 
+
+# ==========================================
+# AS 5 PERGUNTAS PRINCIPAIS (PARA A APRESENTAÇÃO)
+# ==========================================
 
 def analisar_marcas(dados):
     """Pergunta 1: quais cinco marcas aparecem mais na base?"""
@@ -86,7 +99,6 @@ def analisar_tipos(dados):
     for tipo, percentual in proporcao.items():
         print(f"{tipo}: {percentual:.2f}% ({contagem[tipo]:,} veículos)")
 
-    # Mostramos todas as categorias encontradas para que nenhum tipo fique de fora.
     plt.figure(figsize=(8, 6))
     plt.pie(
         contagem.values,
@@ -115,32 +127,29 @@ def analisar_anos_modelo(dados):
         .value_counts()
         .sort_index()
     )
-    # Anos sem veículos ficam como zero, mantendo a linha contínua no gráfico.
     contagem = contagem.reindex(range(ano_inicial, ano_final + 1), fill_value=0)
     print(f"\n3) Veículos por ano de modelo ({ano_inicial}–{ano_final}):")
     print(contagem.to_string())
 
     plt.figure(figsize=(10, 5))
     sns.lineplot(x=contagem.index, y=contagem.values, marker="o", color="#168aad")
-    plt.title("Veículos na base por ano do modelo (últimos 10 anos disponíveis)")
+    plt.title("Veículos na base por ano do modelo (últimos 10 anos)")
     plt.xlabel("Ano do modelo")
     plt.ylabel("Quantidade na base")
     plt.xticks(list(contagem.index), rotation=45)
-    # Model Year é o ano do modelo, não o ano em que o registro entrou na base.
     salvar_grafico("03_veiculos_por_ano_modelo.png")
 
 
 def analisar_autonomia(dados):
     """Pergunta 4: a autonomia média muda conforme o ano do modelo?"""
     base = dados.dropna(subset=[COLUNA_ANO, COLUNA_AUTONOMIA]).copy()
-    # Autonomia zero costuma indicar dado não informado; incluí-la reduziria a média artificialmente.
     base = base.loc[base[COLUNA_AUTONOMIA] > 0]
     if base.empty:
         print("\n4) Não há valores positivos de autonomia para analisar.")
         return
 
     media = base.groupby(COLUNA_ANO)[COLUNA_AUTONOMIA].mean().sort_index()
-    print("\n4) Autonomia elétrica média por ano de modelo (valores acima de zero):")
+    print("\n4) Autonomia elétrica média por ano de modelo:")
     print(media.round(1).to_string())
 
     plt.figure(figsize=(10, 5))
@@ -166,19 +175,121 @@ def analisar_cidades(dados):
     salvar_grafico("05_top_10_cidades.png")
 
 
+# ==========================================
+# AS OUTRAS 5 PERGUNTAS (PARA COMPLETAR AS 10)
+# ==========================================
+
+def analisar_cafv(dados):
+    """Pergunta 6: qual é a distribuição de elegibilidade para incentivos (CAFV)?"""
+    if COLUNA_CAFV not in dados.columns:
+        print("\n6) Coluna CAFV Eligibility não encontrada.")
+        return
+    contagem = dados[COLUNA_CAFV].dropna().value_counts().sort_values()
+    print("\n6) Elegibilidade para incentivos de combustíveis limpos (CAFV):")
+    print(contagem.sort_values(ascending=False).to_string())
+
+    plt.figure(figsize=(10, 5))
+    sns.barplot(x=contagem.values, y=contagem.index, color="#457b9d")
+    plt.title("Elegibilidade para Incentivos de Combustíveis Limpos (CAFV)")
+    plt.xlabel("Quantidade de veículos")
+    plt.ylabel("Status de Elegibilidade")
+    salvar_grafico("06_elegibilidade_cafv.png")
+
+
+def analisar_autonomia_por_tipo(dados):
+    """Pergunta 7: qual é a autonomia média por tipo de veículo (BEV vs PHEV)?"""
+    base = dados.dropna(subset=[COLUNA_TIPO, COLUNA_AUTONOMIA]).copy()
+    base = base.loc[base[COLUNA_AUTONOMIA] > 0]
+    media = base.groupby(COLUNA_TIPO)[COLUNA_AUTONOMIA].mean()
+    print("\n7) Autonomia média por tipo de veículo elétrico:")
+    print(media.round(1).to_string())
+
+    plt.figure(figsize=(8, 5))
+    sns.barplot(x=media.index, y=media.values, palette="Blues_d")
+    plt.title("Autonomia Média por Tipo de Veículo (BEV vs PHEV)")
+    plt.xlabel("Tipo de Veículo")
+    plt.ylabel("Autonomia Média (milhas)")
+    salvar_grafico("07_autonomia_por_tipo.png")
+
+
+def analisar_top_marcas_autonomia(dados):
+    """Pergunta 8: quais marcas possuem a maior autonomia média de bateria?"""
+    base = dados.dropna(subset=[COLUNA_MARCA, COLUNA_AUTONOMIA]).copy()
+    base = base.loc[base[COLUNA_AUTONOMIA] > 0]
+    # Filtra marcas com pelo menos 10 registros para evitar distorções estatísticas
+    contagem_marcas = base[COLUNA_MARCA].value_counts()
+    marcas_validas = contagem_marcas[contagem_marcas >= 10].index
+    base_filtrada = base[base[COLUNA_MARCA].isin(marcas_validas)]
+    
+    media = base_filtrada.groupby(COLUNA_MARCA)[COLUNA_AUTONOMIA].mean().nlargest(10).sort_values()
+    print("\n8) Top 10 marcas com maior autonomia média de bateria:")
+    print(media.round(1).sort_values(ascending=False).to_string())
+
+    plt.figure(figsize=(10, 5))
+    sns.barplot(x=media.values, y=media.index, color="#2a9d8f")
+    plt.title("Top 10 Marcas com Maior Autonomia Média")
+    plt.xlabel("Autonomia Média (milhas)")
+    plt.ylabel("Marca")
+    salvar_grafico("08_top_marcas_autonomia.png")
+
+
+def analisar_condados(dados):
+    """Pergunta 9: quais são os 5 principais condados com maior volume de elétricos?"""
+    if COLUNA_CONDADO not in dados.columns:
+        print("\n9) Coluna County não encontrada.")
+        return
+    contagem = dados[COLUNA_CONDADO].dropna().value_counts().head(5).sort_values()
+    print("\n9) Top 5 condados com mais veículos registrados:")
+    print(contagem.sort_values(ascending=False).to_string())
+
+    plt.figure(figsize=(9, 5))
+    sns.barplot(x=contagem.values, y=contagem.index, color="#f4a261")
+    plt.title("Top 5 Condados com Maior Concentração de Veículos")
+    plt.xlabel("Quantidade de veículos")
+    plt.ylabel("Condado")
+    salvar_grafico("09_top_5_condados.png")
+
+
+def analisar_pico_recente(dados):
+    """Pergunta 10: qual ano recente (últimos 5 anos) registrou o maior volume de fabricação?"""
+    base = dados.dropna(subset=[COLUNA_ANO]).copy()
+    if base.empty:
+        print("\n10) Sem anos para analisar.")
+        return
+
+    base[COLUNA_ANO] = base[COLUNA_ANO].astype(int)
+    ano_final = int(base[COLUNA_ANO].max())
+    ano_inicial = ano_final - 4
+    contagem = base.loc[base[COLUNA_ANO].between(ano_inicial, ano_final), COLUNA_ANO].value_counts().sort_index()
+    print(f"\n10) Volume de veículos fabricados nos últimos 5 anos ({ano_inicial}–{ano_final}):")
+    print(contagem.to_string())
+
+    plt.figure(figsize=(8, 5))
+    sns.barplot(x=contagem.index.astype(str), y=contagem.values, color="#e76f51")
+    plt.title("Volume de Veículos por Ano de Fabricação (Últimos 5 Anos)")
+    plt.xlabel("Ano do Modelo")
+    plt.ylabel("Quantidade de Veículos")
+    salvar_grafico("10_pico_fabricacao_recente.png")
+
+
 def main():
     sns.set_theme(style="whitegrid")
     dados = carregar_dados()
-    print(f"Base carregada: {len(dados):,} registros e {len(dados.columns)} colunas.")
-    print("As análises abaixo usam os registros disponíveis no arquivo atual.")
+    print(f"Base carregada com sucesso: {len(dados):,} registros e {len(dados.columns)} colunas.")
+    print("Executando as análises para as 10 perguntas estratégicas...")
 
     analisar_marcas(dados)
     analisar_tipos(dados)
     analisar_anos_modelo(dados)
     analisar_autonomia(dados)
     analisar_cidades(dados)
+    analisar_cafv(dados)
+    analisar_autonomia_por_tipo(dados)
+    analisar_top_marcas_autonomia(dados)
+    analisar_condados(dados)
+    analisar_pico_recente(dados)
 
-    print(f"\nConcluído. Os gráficos desta etapa estão em: {PASTA_GRAFICOS.relative_to(PASTA_PROJETO)}")
+    print(f"\nConcluído! Todos os 10 gráficos foram salvos em: {PASTA_GRAFICOS.relative_to(PASTA_PROJETO)}")
 
 
 if __name__ == "__main__":
