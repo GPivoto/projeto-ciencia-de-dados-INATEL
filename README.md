@@ -33,16 +33,23 @@ projeto-ciencia-de-dados-INATEL/
 │   └── main.py                               # Script principal com as 10 análises
 ├── .gitignore
 └── README.md
+```
 
 ## 🚀 4. Como Executar o Projeto
-Clone este repositório na sua máquina:
+Clone o repositório e acesse a pasta do projeto:
 ```bash
-git clone [https://github.com/GPivoto/projeto-ciencia-de-dados-INATEL.git](https://github.com/GPivoto/projeto-ciencia-de-dados-INATEL.git)
+git clone https://github.com/GPivoto/projeto-ciencia-de-dados-INATEL.git
+cd projeto-ciencia-de-dados-INATEL
+```
 
-Certifique-se de ter as bibliotecas necessárias instaladas (pandas, matplotlib, seaborn):
+Instale as bibliotecas necessárias:
 ```bash
-pip install pandas matplotlib seaborn
+python -m pip install pandas matplotlib seaborn
+```
 
-Execute o script principal na raiz do projeto para processar os dados e gerar os gráficos:
+Execute o script a partir da raiz do projeto. O CSV já está incluído em `data/`; os gráficos serão salvos em `output/graficos/`:
 ```bash
 python src/main.py
+```
+
+---
