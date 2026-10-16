@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EV Population Data — C11</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070d24; --bg2:#0d1840; --ink:#eef2ff; --muted:#9aaad6; --dim:#5f6f9f;
+  --blue:#3b6dff; --blue2:#1c3fd6; --cyan:#3fd9ff; --volt:#c8ff3a; --orange:#ffb03a;
+  --card:rgba(255,255,255,.045); --card2:rgba(255,255,255,.08); --line:rgba(255,255,255,.11);
+  --serif:'Fraunces',Georgia,serif; --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+body::before{content:"";position:fixed;inset:0;
+  background:
+    radial-gradient(900px 600px at 85% 10%,rgba(59,109,255,.22),transparent 60%),
+    radial-gradient(700px 500px at 5% 95%,rgba(63,217,255,.12),transparent 60%),
+    radial-gradient(500px 400px at 50% 50%,rgba(200,255,58,.04),transparent 70%);
+  pointer-events:none}
+body::after{content:"";position:fixed;inset:-60px;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:60px 60px;animation:pan 30s linear infinite;pointer-events:none;
+  mask-image:radial-gradient(ellipse at center,#000 30%,transparent 80%)}
+@keyframes pan{to{transform:translate(60px,60px)}}
+
+/* ---------- stage ---------- */
+#stage{position:absolute;left:50%;top:50%;width:1600px;height:900px;transform-origin:center;z-index:1}
+.slide{position:absolute;inset:0;padding:80px 100px 110px;opacity:0;visibility:hidden;
+  transform:translateX(60px) scale(.98);transition:opacity .6s ease,transform .7s cubic-bezier(.2,.8,.2,1),visibility .6s}
+.slide.active{opacity:1;visibility:visible;transform:none}
+.slide.left{transform:translateX(-60px) scale(.98)}
+
+.kicker{font-family:var(--mono);font-size:15px;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);margin-bottom:18px;display:flex;align-items:center;gap:12px}
+.kicker::before{content:"";width:28px;height:2px;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+h1,h2,h3{font-family:var(--serif);font-weight:800;letter-spacing:-.01em}
+h2{font-size:60px;line-height:1.05;margin-bottom:14px}
+h3{font-size:24px;font-weight:600}
+.bar-u{width:220px;height:5px;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--cyan));box-shadow:0 0 18px rgba(63,217,255,.5);margin-bottom:40px;position:relative;overflow:hidden}
+.bar-u::after{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,#fff,transparent);animation:zap 2.4s ease-in-out infinite}
+@keyframes zap{from{transform:translateX(-120%)}to{transform:translateX(300%)}}
+.grad{background:linear-gradient(100deg,#fff 10%,var(--cyan) 55%,var(--volt));-webkit-background-clip:text;background-clip:text;color:transparent}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:30px 32px;backdrop-filter:blur(6px)}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease;transition-delay:calc(var(--d,0)*90ms + 150ms)}
+.slide.on .reveal{opacity:1;transform:none}
+
+/* ---------- title ---------- */
+.s-title{display:grid;grid-template-columns:1.15fr .85fr;align-items:center;gap:40px}
+.s-title h1{font-size:96px;line-height:.98;margin:10px 0 26px}
+.s-title .sub{font-size:26px;line-height:1.45;color:var(--muted);max-width:760px}
+.authors{margin-top:56px;font-family:var(--mono);font-size:15px;letter-spacing:.08em;color:var(--dim);line-height:1.9;text-transform:uppercase}
+.authors b{color:var(--ink);font-weight:500}
+.orb{position:relative;width:520px;height:520px;margin:auto}
+.ring{position:absolute;inset:0;border-radius:50%;border:2px dashed rgba(63,217,255,.35);animation:spin 40s linear infinite}
+.ring.r2{inset:60px;border:1px solid rgba(59,109,255,.4);animation-duration:25s;animation-direction:reverse}
+.ring.r3{inset:130px;border:none;background:radial-gradient(circle,rgba(200,255,58,.18),transparent 70%)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bolt{position:absolute;inset:0;display:grid;place-items:center}
+.bolt svg{width:170px;filter:drop-shadow(0 0 30px rgba(200,255,58,.7));animation:pulse 2.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.07);filter:drop-shadow(0 0 50px rgba(200,255,58,.95))}}
+.pill{position:absolute;background:rgba(13,24,64,.85);border:1px solid var(--line);border-radius:16px;padding:14px 20px;backdrop-filter:blur(8px);box-shadow:0 10px 40px rgba(0,0,0,.35);animation:float 5s ease-in-out infinite}
+.pill b{display:block;font-family:var(--serif);font-size:32px}
+.pill span{font-size:14px;color:var(--muted)}
+.pill.p1{top:20px;left:-30px}.pill.p2{top:210px;right:-50px;animation-delay:-1.6s}.pill.p3{bottom:30px;left:20px;animation-delay:-3s}
+@keyframes float{50%{transform:translateY(-12px)}}
+
+/* ---------- dataset ---------- */
+.ds-grid{display:grid;grid-template-columns:1.7fr 1fr;gap:26px;margin-bottom:26px}
+.ds-grid p{font-size:21px;line-height:1.55;color:#cdd6f5}
+.ds-grid h3{margin-bottom:10px;color:#fff}
+.src a{display:inline-flex;align-items:center;gap:10px;color:var(--cyan);font-size:22px;font-weight:600;text-decoration:none;border-bottom:2px solid rgba(63,217,255,.4);padding-bottom:4px;margin-top:6px}
+.src a:hover{border-color:var(--cyan)}
+.src .meta{margin-top:26px;display:grid;gap:12px;font-size:17px;color:var(--muted)}
+.src .meta b{color:#fff;font-family:var(--mono);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.chip{font-family:var(--mono);font-size:14px;padding:9px 14px;border-radius:10px;border:1px solid rgba(59,109,255,.55);color:#bcd0ff;background:rgba(59,109,255,.08);cursor:help;transition:.2s}
+.chip:hover,.chip.sel{background:var(--blue);color:#fff;border-color:var(--blue);transform:translateY(-2px);box-shadow:0 8px 24px rgba(59,109,255,.4)}
+.chip-info{margin-top:18px;min-height:30px;font-size:19px;color:var(--volt)}
+.chip-info b{font-family:var(--mono);color:#fff;font-weight:500}
+
+/* ---------- questions ---------- */
+.q-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.q-col h3{font-size:26px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.tag{font-family:var(--sans);font-size:13px;font-weight:600;padding:5px 11px;border-radius:30px;background:var(--volt);color:#0a1230;letter-spacing:.04em}
+.tag.alt{background:transparent;border:1px solid var(--muted);color:var(--muted)}
+.q{display:flex;gap:18px;align-items:flex-start;padding:16px 20px;border-radius:16px;border:1px solid transparent;cursor:pointer;transition:.25s;margin-bottom:6px}
+.q:hover{background:var(--card2);border-color:var(--line);transform:translateX(8px)}
+.q .n{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-family:var(--mono);font-size:17px;background:rgba(59,109,255,.15);color:var(--cyan);border:1px solid rgba(63,217,255,.3)}
+.q:hover .n{background:var(--blue);color:#fff}
+.q p{font-size:20px;line-height:1.4;color:#dbe2fb;padding-top:9px}
+.q .go{margin-left:auto;opacity:0;color:var(--volt);font-size:22px;padding-top:8px;transition:.25s}
+.q:hover .go{opacity:1}
+
+/* ---------- method ---------- */
+.tools{display:flex;gap:14px;align-items:center;font-size:21px;color:var(--muted);margin-bottom:46px;flex-wrap:wrap}
+.tools .t{font-family:var(--mono);font-size:17px;color:#fff;padding:10px 18px;border-radius:12px;background:var(--card2);border:1px solid var(--line)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.step{position:relative;overflow:hidden;transition:.3s}
+.step:hover{transform:translateY(-6px);border-color:rgba(63,217,255,.5)}
+.step .num{font-family:var(--serif);font-size:64px;color:transparent;-webkit-text-stroke:1.5px var(--blue);line-height:1}
+.step h3{margin:18px 0 12px;font-size:27px}
+.step p{font-size:19px;line-height:1.55;color:#c5cff0}
+.step .code{margin-top:22px;font-family:var(--mono);font-size:14px;color:var(--volt);background:rgba(0,0,0,.3);padding:12px 14px;border-radius:10px;border:1px solid var(--line);white-space:pre}
+.step::before{content:"";position:absolute;left:0;top:0;height:4px;width:0;background:linear-gradient(90deg,var(--blue),var(--cyan));transition:width 1s ease;transition-delay:calc(var(--d)*200ms + 400ms)}
+.slide.on .step::before{width:100%}
+
+/* ---------- charts ---------- */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:34px;height:600px}
+.two .card{display:flex;flex-direction:column}
+.chart-title{font-family:var(--serif);font-size:28px;margin-bottom:6px}
+.chart-title small{font-family:var(--mono);font-size:14px;color:var(--cyan);margin-right:10px;vertical-align:middle}
+.caption{margin-top:auto;font-size:18px;line-height:1.5;color:#c5cff0}
+.caption b{color:#fff}
+.hbars{display:grid;gap:16px;margin:26px 0}
+.hrow{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:16px;position:relative;cursor:default}
+.hrow .lb{font-size:18px;color:#dbe2fb;text-align:right}
+.track{height:40px;border-radius:10px;background:rgba(255,255,255,.04);position:relative;overflow:visible}
+.fill{height:100%;width:0;border-radius:10px;background:linear-gradient(90deg,var(--blue2),var(--blue) 60%,var(--cyan));
+  transition:width 1.2s cubic-bezier(.2,.8,.2,1),filter .2s;transition-delay:calc(var(--i)*110ms + 300ms);position:relative;box-shadow:0 0 20px rgba(59,109,255,.25)}
+.slide.on .fill{width:var(--w)}
+.hrow .val{position:absolute;left:calc(var(--w) + 12px);top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:16px;color:#fff;opacity:0;transition:opacity .4s,left 1.2s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--i)*110ms + 900ms)}
+.slide.on .hrow .val{opacity:1}
+.hrow:first-child .fill{background:linear-gradient(90deg,var(--blue),var(--cyan) 70%,var(--volt))}
+.hrow:hover .fill{filter:brightness(1.35)}
+.hrow:hover .lb{color:var(--volt)}
+.tip{position:absolute;right:0;top:-34px;font-size:14px;background:#fff;color:#0a1230;padding:6px 10px;border-radius:8px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;white-space:nowrap}
+.hrow:hover .tip{opacity:1;top:-30px}
+
+.vbars{flex:1;display:flex;align-items:flex-end;justify-content:space-around;gap:30px;padding:30px 20px 0;border-bottom:1px solid var(--line);margin:10px 0 18px;min-height:250px;position:relative}
+.vcol{flex:1;max-width:150px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:10px;cursor:default}
+.vcol .vval{font-family:var(--mono);font-size:17px;opacity:0;transition:opacity .4s;transition-delay:calc(var(--i)*150ms + 1000ms)}
+.slide.on .vcol .vval{opacity:1}
+.vfill{width:100%;height:0;border-radius:12px 12px 4px 4px;background:linear-gradient(0deg,var(--blue2),var(--blue) 50%,var(--cyan));transition:height 1.2s cubic-bezier(.2,.8,.2,1),filter .2s;transition-delay:calc(var(--i)*150ms + 300ms);box-shadow:0 0 30px rgba(59,109,255,.3)}
+.slide.on .vfill{height:var(--h)}
+.vcol.peak .vfill{background:linear-gradient(0deg,var(--blue),var(--cyan) 60%,var(--volt))}
+.vcol:hover .vfill{filter:brightness(1.3)}
+.vlabels{display:flex;justify-content:space-around;gap:30px;padding:0 20px}
+.vlabels span{flex:1;max-width:150px;text-align:center;font-family:var(--mono);font-size:17px;color:var(--muted)}
+
+.donut-wrap{flex:1;display:flex;align-items:center;justify-content:center;gap:40px}
+.donut{width:300px;height:300px;position:relative}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.donut circle{fill:none;stroke-width:44;cursor:pointer;transition:stroke-dasharray 1.4s cubic-bezier(.2,.8,.2,1),stroke-width .25s,filter .25s}
+.donut circle:hover,.donut circle.hl{stroke-width:54;filter:drop-shadow(0 0 12px currentColor)}
+.donut .center{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.donut .center b{font-family:var(--serif);font-size:52px;line-height:1}
+.donut .center span{font-size:15px;color:var(--muted);margin-top:6px}
+.legend{display:grid;gap:14px}
+.lg{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;font-size:18px;cursor:pointer;transition:.2s}
+.lg:hover,.lg.hl{background:var(--card2);border-color:rgba(255,255,255,.3)}
+.lg i{width:14px;height:14px;border-radius:4px}
+.lg b{font-family:var(--mono);font-weight:500;margin-left:auto;padding-left:14px}
+
+/* ---------- cities ---------- */
+.s-city{display:grid;grid-template-columns:1fr 1.15fr;gap:56px;align-items:center}
+.s-city .lead{font-size:24px;line-height:1.55;color:#cdd6f5}
+.s-city .lead b{color:#fff}
+.vs{margin-top:34px;display:flex;align-items:center;gap:18px}
+.vs .box{flex:1;padding:22px;border-radius:18px;background:var(--card);border:1px solid var(--line);text-align:center}
+.vs .box b{display:block;font-family:var(--serif);font-size:44px}
+.vs .box span{font-size:15px;color:var(--muted)}
+.vs .box.win{border-color:var(--volt);box-shadow:0 0 30px rgba(200,255,58,.15)}
+.vs .box.win b{color:var(--volt)}
+.vs em{font-family:var(--mono);font-style:normal;color:var(--dim);font-size:18px}
+.s-city .hrow{grid-template-columns:130px 1fr}
+.s-city .track{height:52px}
+
+/* ---------- complementares ---------- */
+.comp{display:grid;grid-template-columns:repeat(6,1fr);gap:22px}
+.comp .card{padding:24px 26px;transition:.3s}
+.comp .card:hover{transform:translateY(-5px);border-color:rgba(63,217,255,.45)}
+.comp .c1,.comp .c2,.comp .c3{grid-column:span 2}
+.comp .c4{grid-column:span 3}.comp .c5{grid-column:span 3}
+.comp h3{font-size:22px;margin-bottom:6px;display:flex;gap:10px;align-items:baseline}
+.comp h3 small{font-family:var(--mono);font-size:13px;color:var(--cyan)}
+.comp p{font-size:16px;line-height:1.5;color:#b9c4ea;margin-bottom:16px}
+.stack{display:flex;height:34px;border-radius:9px;overflow:hidden;gap:3px}
+.stack div{width:0;transition:width 1.2s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--i)*150ms + 400ms);cursor:pointer;position:relative}
+.slide.on .stack div{width:var(--w)}
+.stack div:hover{filter:brightness(1.3)}
+.slegend{display:grid;gap:7px;margin-top:14px;font-size:14px;color:var(--muted)}
+.slegend span{display:flex;align-items:center;gap:8px}
+.slegend i{width:10px;height:10px;border-radius:3px}
+.slegend b{color:#fff;font-family:var(--mono);font-weight:500;margin-left:auto}
+.mini .hrow{grid-template-columns:96px 1fr;gap:12px}
+.mini .hbars{gap:10px;margin:6px 0 0}
+.mini .track{height:28px}.mini .fill{border-radius:7px}
+.mini .lb{font-size:15px}.mini .val{font-size:14px}
+.bignum{display:flex;align-items:baseline;gap:18px;margin-top:4px}
+.bignum b{font-family:var(--serif);font-size:72px;line-height:1;color:var(--volt);text-shadow:0 0 30px rgba(200,255,58,.35)}
+.bignum span{font-size:17px;color:var(--muted)}
+
+/* ---------- conclusion ---------- */
+.s-end{display:flex;flex-direction:column;justify-content:center}
+.s-end h2{font-size:88px;max-width:1300px;margin-bottom:24px}
+.s-end .lead{font-size:25px;line-height:1.55;color:#cdd6f5;max-width:1200px}
+.take{display:flex;gap:18px;margin:42px 0}
+.take div{padding:22px 26px;border-radius:18px;background:var(--card);border:1px solid var(--line);min-width:260px}
+.take b{display:block;font-family:var(--serif);font-size:40px;margin-bottom:4px}
+.take span{font-size:16px;color:var(--muted)}
+.take div:nth-child(1) b{color:var(--cyan)}.take div:nth-child(2) b{color:#fff}.take div:nth-child(3) b{color:var(--volt)}
+.thanks{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:18px;color:var(--muted)}
+.thanks .ob{font-family:var(--serif);font-size:34px;color:#fff}
+
+/* ---------- UI ---------- */
+#progress{position:fixed;top:0;left:0;height:4px;width:0;background:linear-gradient(90deg,var(--blue),var(--cyan),var(--volt));box-shadow:0 0 14px var(--cyan);z-index:20;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+#controls{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:7px;border-radius:16px;background:rgba(10,18,48,.75);border:1px solid var(--line);backdrop-filter:blur(10px);z-index:20;transition:opacity .4s}
+#controls.idle{opacity:.15}
+#controls button{background:transparent;border:0;color:var(--ink);width:42px;height:42px;border-radius:11px;cursor:pointer;font-size:18px;display:grid;place-items:center;transition:.2s}
+#controls button:hover{background:var(--card2);color:var(--volt)}
+#counter{font-family:var(--mono);font-size:14px;color:var(--muted);padding:0 12px;min-width:76px;text-align:center}
+.dots{display:flex;gap:6px;padding:0 8px}
+.dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:.3s}
+.dots i.on{background:var(--volt);width:22px;border-radius:5px}
+
+/* ---------- avatar ---------- */
+#volti{position:fixed;right:28px;bottom:24px;z-index:30;display:flex;align-items:flex-end;gap:10px;transition:transform .5s cubic-bezier(.3,1.5,.5,1),opacity .4s}
+#volti.hidden{transform:translateY(160%);opacity:0}
+#bubble{max-width:330px;background:#fff;color:#0b1433;font-size:16px;line-height:1.45;padding:14px 18px;border-radius:18px 18px 4px 18px;box-shadow:0 14px 40px rgba(0,0,0,.4);margin-bottom:70px;position:relative;transition:opacity .3s,transform .3s;transform-origin:bottom right}
+#bubble.out{opacity:0;transform:scale(.85)}
+#bubble .nm{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--blue);margin-bottom:4px;text-transform:uppercase}
+#bubble .x{position:absolute;top:6px;right:9px;border:0;background:none;font-size:15px;color:#99a;cursor:pointer}
+#bot{width:110px;cursor:pointer;animation:bob 3s ease-in-out infinite;filter:drop-shadow(0 10px 20px rgba(0,0,0,.45))}
+#bot.jump{animation:jump .6s cubic-bezier(.3,1.6,.5,1)}
+#bot.party{animation:party .5s ease-in-out 4}
+@keyframes bob{50%{transform:translateY(-7px)}}
+@keyframes jump{30%{transform:translateY(-26px) rotate(-6deg)}60%{transform:translateY(0) scaleY(.9)}}
+@keyframes party{25%{transform:rotate(-12deg) translateY(-10px)}75%{transform:rotate(12deg) translateY(-10px)}}
+#charge{transform-box:fill-box;transform-origin:bottom;transition:transform 1s cubic-bezier(.2,.8,.2,1),fill .6s}
+.eye-lid{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+#pct{font-family:var(--mono);font-size:13px;font-weight:500}
+.spark{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:40;animation:spark 1.4s ease-out forwards}
+@keyframes spark{to{transform:translate(var(--x),var(--y)) rotate(540deg);opacity:0}}
+#help{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:12px;color:var(--dim);transition:opacity .4s}
+kbd{border:1px solid var(--line);border-radius:5px;padding:1px 6px;margin:0 2px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="help"><kbd>←</kbd><kbd>→</kbd> navegar · <kbd>F</kbd> tela cheia · <kbd>A</kbd> mascote</div>
+
+<main id="stage">
+
+<!-- 1 TITLE -->
+<section class="slide s-title" data-say="Oi! Eu sou o Volti ⚡, a bateria oficial desse projeto. A cada slide eu carrego um pouquinho. Bora ver até onde eu chego?">
+  <div>
+    <div class="kicker reveal">Inatel · Projeto I · C11</div>
+    <h1 class="reveal" style="--d:1">Apresentação dos <span class="grad">Resultados</span></h1>
+    <p class="sub reveal" style="--d:2">Electric Vehicle Population Data — análise da adoção de veículos elétricos e híbridos.</p>
+    <div class="authors reveal" style="--d:3">Inatel — Instituto Nacional de Telecomunicações<br><b>Gabriel Machado Pivoto · Otavio Augusto Silva Lima · Hugo Henrique Reis Camilo</b></div>
+  </div>
+  <div class="orb reveal" style="--d:2">
+    <div class="ring"></div><div class="ring r2"></div><div class="ring r3"></div>
+    <div class="bolt"><svg viewBox="0 0 64 100"><path d="M38 0 4 58h24L20 100 60 36H35z" fill="#c8ff3a"/></svg></div>
+    <div class="pill p1"><b data-count="135038">0</b><span>registros analisados</span></div>
+    <div class="pill p2"><b data-count="76.9" data-dec="1" data-suf="%">0</b><span>da frota é 100% elétrica</span></div>
+    <div class="pill p3"><b data-count="17">0</b><span>colunas no dataset</span></div>
+  </div>
+</section>
+
+<!-- 2 DATASET -->
+<section class="slide" data-say="135 mil registros e 17 colunas. Passa o mouse nas colunas aí embaixo que eu explico o que cada uma guarda!">
+  <div class="kicker reveal">O dataset</div>
+  <h2 class="reveal" style="--d:1">Conscientização e compreensão</h2>
+  <div class="bar-u reveal" style="--d:1"></div>
+  <div class="ds-grid">
+    <div class="card reveal" style="--d:2">
+      <h3>O que reúne</h3>
+      <p>Registros governamentais detalhados de veículos elétricos (BEVs) e híbridos plug-in (PHEVs), cobrindo fabricantes, modelos, anos, autonomias e localizações.</p>
+      <h3 style="margin-top:22px">Visão estratégica</h3>
+      <p>Fundamental para o planejamento de infraestrutura de recarga por concessionárias de energia, inteligência de mercado para montadoras e formulação de políticas públicas de mobilidade sustentável.</p>
+    </div>
+    <div class="card src reveal" style="--d:3">
+      <h3>Fonte</h3>
+      <a href="https://catalog.data.gov/dataset/electric-vehicle-population-data" target="_blank" rel="noopener">Electric Vehicle Population Data ↗</a>
+      <div class="meta">
+        <div>Registros <b data-count="135038">0</b></div>
+        <div>Colunas <b>17</b></div>
+        <div>Tipos <b>BEV · PHEV</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="card reveal" style="--d:4;padding:24px 30px">
+    <h3>As 17 colunas</h3>
+    <div class="chips" id="chips"></div>
+    <div class="chip-info" id="chipInfo">↑ passe o mouse sobre uma coluna</div>
+  </div>
+</section>
+
+<!-- 3 QUESTIONS -->
+<section class="slide" data-say="Dez perguntas pra investigar. Clica em qualquer uma que eu te levo direto pra resposta 😉">
+  <div class="kicker reveal">Investigação</div>
+  <h2 class="reveal" style="--d:1">As 10 perguntas</h2>
+  <div class="bar-u reveal" style="--d:1"></div>
+  <div class="q-grid">
+    <div class="q-col reveal" style="--d:2">
+      <h3>Apresentação principal <span class="tag">EM SALA</span></h3>
+      <div class="q" data-go="4"><span class="n">01</span><p>Qual é o ranking das 5 marcas com maior volume de veículos registrados?</p><span class="go">→</span></div>
+      <div class="q" data-go="4"><span class="n">02</span><p>Qual é a proporção entre Veículos Totalmente Elétricos (BEV) e Híbridos (PHEV)?</p><span class="go">→</span></div>
+      <div class="q" data-go="5"><span class="n">03</span><p>Como se comportou o crescimento de registros por ano de modelo?</p><span class="go">→</span></div>
+      <div class="q" data-go="5"><span class="n">04</span><p>A autonomia média aumentou ao longo dos anos de fabricação?</p><span class="go">→</span></div>
+      <div class="q" data-go="6"><span class="n">05</span><p>Quais são as 10 cidades que concentram mais veículos elétricos?</p><span class="go">→</span></div>
+    </div>
+    <div class="q-col reveal" style="--d:3">
+      <h3>Material de apoio <span class="tag alt">COMPLEMENTAR</span></h3>
+      <div class="q" data-go="7"><span class="n">06</span><p>Qual é a distribuição de elegibilidade para incentivos (CAFV)?</p><span class="go">→</span></div>
+      <div class="q" data-go="7"><span class="n">07</span><p>Qual é a autonomia média por tipo de veículo (BEV vs PHEV)?</p><span class="go">→</span></div>
+      <div class="q" data-go="7"><span class="n">08</span><p>Quais marcas possuem a maior autonomia média de bateria?</p><span class="go">→</span></div>
+      <div class="q" data-go="7"><span class="n">09</span><p>Quais são os 5 principais condados com maior volume?</p><span class="go">→</span></div>
+      <div class="q" data-go="7"><span class="n">10</span><p>Qual ano recente registrou o maior pico de fabricação de novos modelos?</p><span class="go">→</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 METHOD -->
+<section class="slide" data-say="Dado cru é bagunça: 'TESLA', 'tesla', 'Tesla'... Antes de calcular qualquer coisa, a gente padronizou tudo.">
+  <div class="kicker reveal">Como fizemos</div>
+  <h2 class="reveal" style="--d:1">Método e desafios técnicos</h2>
+  <div class="bar-u reveal" style="--d:1"></div>
+  <div class="tools reveal" style="--d:2"><b style="color:#fff">Ferramentas:</b><span class="t">Python</span><span class="t">pandas</span><span class="t">matplotlib</span><span class="t">seaborn</span><span>+ script automatizado para gráficos padronizados</span></div>
+  <div class="steps">
+    <div class="card step reveal" style="--d:3"><div class="num">01</div><h3>Padronização de categorias</h3><p>Tratamento de maiúsculas/minúsculas e valores vazios nas colunas categóricas (Make e City).</p><div class="code">df['Make'].str.strip().str.title()</div></div>
+    <div class="card step reveal" style="--d:4"><div class="num">02</div><h3>Filtragem de consistência</h3><p>Remoção de ruídos e autonomias zeradas para evitar distorções estatísticas nas médias.</p><div class="code">df[df['Electric Range'] > 0]</div></div>
+    <div class="card step reveal" style="--d:5"><div class="num">03</div><h3>Ajustes visuais de eixos</h3><p>Formatação de rótulos e escalas no Matplotlib/Seaborn para legibilidade ideal em relatórios e apresentações.</p><div class="code">ax.bar_label(ax.containers[0])</div></div>
+  </div>
+</section>
+
+<!-- 5 RESULTS 1-2 -->
+<section class="slide" data-say="Quase metade da base é Tesla! E olha o donut: de cada 4 carros, 3 são 100% elétricos. Clica nas fatias!">
+  <div class="kicker reveal">Resultados 01 e 02</div>
+  <h2 class="reveal" style="--d:1">Marcas e composição da frota</h2>
+  <div class="bar-u reveal" style="--d:1"></div>
+  <div class="two" style="height:560px">
+    <div class="card reveal" style="--d:2">
+      <div class="chart-title"><small>01</small>Ranking de marcas</div>
+      <div class="hbars" data-chart="brands"></div>
+      <p class="caption">A <b>Tesla</b> lidera de forma absoluta com <b>61.808</b> veículos (mais de 45% da base), seguida por Nissan (13.150), Chevrolet (11.437), Ford (6.897) e BMW (5.895).</p>
+    </div>
+    <div class="card reveal" style="--d:3">
+      <div class="chart-title"><small>02</small>BEV × PHEV</div>
+      <div class="donut-wrap">
+        <div class="donut">
+          <svg viewBox="0 0 200 200"><circle id="dPhev" cx="100" cy="100" r="78" stroke="#1c3fd6" style="color:#3b6dff"/><circle id="dBev" cx="100" cy="100" r="78" stroke="#3fd9ff" style="color:#3fd9ff"/></svg>
+          <div class="center"><b id="dVal">76,93%</b><span id="dLbl">BEV · 103.882</span></div>
+        </div>
+        <div class="legend">
+          <div class="lg" data-k="bev"><i style="background:#3fd9ff"></i>BEV<b>76,93%</b></div>
+          <div class="lg" data-k="phev"><i style="background:#1c3fd6"></i>PHEV<b>23,07%</b></div>
+        </div>
+      </div>
+      <p class="caption"><b>76,93%</b> da frota é composta por Veículos Totalmente Elétricos a Bateria (BEV, 103.882 unidades), enquanto <b>23,07%</b> são Híbridos Plug-in (PHEV, 31.156 unidades).</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 RESULTS 3-4 -->
+<section class="slide" data-say="De 4,9 mil em 2015 pra quase 28 mil em 2022. Isso sim é carga rápida! ⚡">
+  <div class="kicker reveal">Resultados 03 e 04</div>
+  <h2 class="reveal" style="--d:1">Crescimento e autonomia</h2>
+  <div class="bar-u reveal" style="--d:1"></div>
+  <div class="two" style="height:560px">
+    <div class="card reveal" style="--d:2">
+      <div class="chart-title"><small>03</small>Registros por ano de modelo</div>
+      <div class="vbars" data-chart="years"></div>
+      <p class="caption">Os registros saltaram de <b>4.925</b> veículos em 2015 para um pico de <b>27.983</b> em 2022 e 22.476 em 2023, refletindo uma aceleração expressiva na adoção.</p>
+    </div>
+    <div class="card reveal" style="--d:3">
+      <div class="chart-title"><small>04</small>Autonomia ao longo do tempo <span class="muted" style="font-family:var(--sans);font-size:16px">(milhas)</span></div>
+      <div class="vbars" data-chart="range"></div>
+      <p class="caption">A autonomia média subiu de <b>97,5 milhas</b> (2015) para o auge tecnológico de <b>242,4 milhas</b> em 2020; a queda nos anos posteriores reflete a entrada de compactos urbanos de menor alcance.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7 CITIES -->
+<section class="slide s-city" data-say="Seattle sozinha tem mais carro elétrico que as outras 4 cidades juntas: 23,5 mil contra 20,9 mil!">
+  <div>
+    <div class="kicker reveal">Resultado 05</div>
+    <h2 class="reveal" style="--d:1">A adoção se concentra em <span class="grad">polos urbanos</span></h2>
+    <div class="bar-u reveal" style="--d:1"></div>
+    <p class="lead reveal" style="--d:2"><b>Seattle</b> lidera isoladamente com <b>23.489</b> veículos, seguida por Bellevue (6.960), Redmond (4.965), Vancouver (4.819) e Kirkland (4.201).</p>
+    <div class="vs reveal" style="--d:3">
+      <div class="box win"><b data-count="23489">0</b><span>Seattle</span></div>
+      <em>vs</em>
+      <div class="box"><b data-count="20945">0</b><span>as outras 4 somadas</span></div>
+    </div>
+  </div>
+  <div class="card reveal" style="--d:2">
+    <div class="chart-title">Veículos elétricos por cidade</div>
+    <div class="hbars" data-chart="cities"></div>
+  </div>
+</section>
+
+<!-- 8 COMPLEMENTARES -->
+<section class="slide" data-say="PHEV roda só uns 30 milhas no modo elétrico. BEV passa de 190. É mais de 6 vezes!">
+  <div class="kicker reveal">Material de apoio</div>
+  <h2 class="reveal" style="--d:1">Análises complementares</h2>
+  <div class="bar-u reveal" style="--d:1" ></div>
+  <div class="comp">
+    <div class="card c1 reveal" style="--d:2">
+      <h3><small>06</small>Elegibilidade CAFV</h3>
+      <div class="stack">
+        <div style="--w:45.3%;--i:0;background:var(--volt)" title="Elegíveis: 61.221"></div>
+        <div style="--w:42.2%;--i:1;background:var(--blue)" title="Sob pesquisa: 56.983"></div>
+        <div style="--w:12.5%;--i:2;background:#ff6b6b" title="Inelegíveis: 16.834"></div>
+      </div>
+      <div class="slegend">
+        <span><i style="background:var(--volt)"></i>Elegíveis a incentivos limpos<b>61.221</b></span>
+        <span><i style="background:var(--blue)"></i>Sob pesquisa<b>56.983</b></span>
+        <span><i style="background:#ff6b6b"></i>Inelegíveis (baixa autonomia)<b>16.834</b></span>
+      </div>
+    </div>
+    <div class="card c2 reveal mini" style="--d:3">
+      <h3><small>07</small>Autonomia por tipo</h3>
+      <p>BEVs entregam média de 194,4 milhas, contra 30,6 milhas dos PHEVs.</p>
+      <div class="hbars" data-chart="type"></div>
+    </div>
+    <div class="card c3 reveal mini" style="--d:4">
+      <h3><small>08</small>Top marcas em autonomia</h3>
+      <p>Tesla, Jaguar e Polestar lideram em alcance de bateria.</p>
+      <div class="hbars" data-chart="brandRange"></div>
+    </div>
+    <div class="card c4 reveal mini" style="--d:5">
+      <h3><small>09</small>Condados líderes</h3>
+      <p>King concentra 70.842 veículos, seguido por Snohomish (15.258) e Pierce (10.410).</p>
+      <div class="hbars" data-chart="counties"></div>
+    </div>
+    <div class="card c5 reveal" style="--d:6">
+      <h3><small>10</small>Pico de fabricação recente</h3>
+      <p>2022 registrou o maior volume de produção recente da base.</p>
+      <div class="bignum"><b data-count="27983">0</b><span>novos veículos<br>em <strong style="color:#fff">2022</strong></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 END -->
+<section class="slide s-end" data-say="100% carregado! 🔋 A transição energética já tá nos dados. Valeu, galera!">
+  <div class="kicker reveal">Conclusão</div>
+  <h2 class="reveal" style="--d:1">A transição energética já é <span class="grad">visível nos dados</span></h2>
+  <div class="bar-u reveal" style="--d:1"></div>
+  <p class="lead reveal" style="--d:2">A análise exploratória da base com <b style="color:#fff">135.038 registros</b> comprova que a transição energética nos transportes é rápida, altamente concentrada em polos urbanos específicos e impulsionada pela maturidade dos veículos 100% elétricos (76,9% da frota).</p>
+  <div class="take reveal" style="--d:3">
+    <div><b>Rápida</b><span>~5,7× mais registros de 2015 a 2022</span></div>
+    <div><b>Concentrada</b><span>King County = 52% da base</span></div>
+    <div><b data-count="76.9" data-dec="1" data-suf="%">0</b><span>da frota é 100% elétrica</span></div>
+  </div>
+  <div class="thanks reveal" style="--d:4"><span>Gabriel Machado Pivoto · Otavio Augusto Silva Lima · Hugo Henrique Reis Camilo</span><span class="ob">Obrigado! ⚡</span></div>
+</section>
+
+</main>
+
+<div id="controls">
+  <button id="prev" title="Anterior (←)">←</button>
+  <div class="dots" id="dots"></div>
+  <span id="counter">1 / 9</span>
+  <button id="next" title="Próximo (→)">→</button>
+  <button id="fs" title="Tela cheia (F)">⛶</button>
+  <button id="tgl" title="Mostrar/ocultar mascote (A)">🔋</button>
+</div>
+
+<div id="volti">
+  <div id="bubble"><button class="x" title="fechar">✕</button><span class="nm">Volti</span><span id="say"></span></div>
+  <svg id="bot" viewBox="0 0 110 160" aria-label="Volti, o mascote bateria">
+    <defs>
+      <linearGradient id="gb" x1="0" x2="1"><stop offset="0" stop-color="#1a2b6b"/><stop offset="1" stop-color="#0f1a48"/></linearGradient>
+      <clipPath id="inner"><rect x="17" y="34" width="76" height="104" rx="14"/></clipPath>
+    </defs>
+    <ellipse cx="55" cy="154" rx="34" ry="5" fill="rgba(0,0,0,.35)"/>
+    <rect x="40" y="14" width="30" height="14" rx="5" fill="#9aaad6"/>
+    <rect x="9" y="26" width="92" height="120" rx="22" fill="url(#gb)" stroke="#3fd9ff" stroke-width="3"/>
+    <g clip-path="url(#inner)">
+      <rect id="charge" x="17" y="34" width="76" height="104" fill="#c8ff3a" opacity=".9"/>
+    </g>
+    <path d="M60 46 46 74h10l-4 22 16-30H58z" fill="#fff" opacity=".35"/>
+    <g class="eye-lid"><circle cx="40" cy="92" r="11" fill="#fff"/><circle id="pl" cx="40" cy="92" r="5.5" fill="#0a1230"/><circle cx="42" cy="89" r="1.8" fill="#fff"/></g>
+    <g class="eye-lid"><circle cx="70" cy="92" r="11" fill="#fff"/><circle id="pr" cx="70" cy="92" r="5.5" fill="#0a1230"/><circle cx="72" cy="89" r="1.8" fill="#fff"/></g>
+    <circle cx="28" cy="110" r="5" fill="#ff7aa8" opacity=".55"/><circle cx="82" cy="110" r="5" fill="#ff7aa8" opacity=".55"/>
+    <path id="mouth" d="M46 112 Q55 120 64 112" stroke="#0a1230" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <text id="pct" x="55" y="135" text-anchor="middle" fill="#0a1230">11%</text>
+  </svg>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const fmt=(v,d=0)=>v.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+/* ---------- data ---------- */
+const TOTAL=135038;
+const charts={
+  brands:{type:'h',max:68000,data:[['Tesla',61808],['Nissan',13150],['Chevrolet',11437],['Ford',6897],['BMW',5895]],pct:true},
+  cities:{type:'h',max:26000,data:[['Seattle',23489],['Bellevue',6960],['Redmond',4965],['Vancouver',4819],['Kirkland',4201]],pct:true},
+  type:{type:'h',max:230,dec:1,suf:' mi',data:[['BEV',194.4],['PHEV',30.6]]},
+  brandRange:{type:'h',max:280,dec:1,suf:' mi',data:[['Tesla',240.5],['Jaguar',234.0],['Polestar',233.0]]},
+  counties:{type:'h',max:82000,data:[['King',70842],['Snohomish',15258],['Pierce',10410]],pct:true},
+  years:{type:'v',max:30000,data:[['2015',4925],['2022',27983],['2023',22476]],peak:1},
+  range:{type:'v',max:260,dec:1,data:[['2015',97.5],['2020',242.4]],peak:1}
+};
+$$('[data-chart]').forEach(el=>{
+  const c=charts[el.dataset.chart];
+  if(c.type==='h'){
+    el.innerHTML=c.data.map(([l,v],i)=>{
+      const w=(v/c.max*100).toFixed(2)+'%';
+      const tip=c.pct?`${fmt(v/TOTAL*100,1)}% da base`:`${l}: ${fmt(v,c.dec||0)}${c.suf||''}`;
+      return `<div class="hrow" style="--i:${i};--w:${w}"><span class="lb">${l}</span><div class="track"><div class="fill"></div><span class="val" data-count="${v}" data-dec="${c.dec||0}" data-suf="${c.suf||''}">0</span><span class="tip">${tip}</span></div></div>`}).join('');
+  }else{
+    el.innerHTML=c.data.map(([l,v],i)=>`<div class="vcol ${i===c.peak?'peak':''}" style="--i:${i};--h:${(v/c.max*100).toFixed(1)}%" title="${l}: ${fmt(v,c.dec||0)}"><span class="vval" data-count="${v}" data-dec="${c.dec||0}">0</span><div class="vfill"></div></div>`).join('');
+    el.insertAdjacentHTML('afterend',`<div class="vlabels">${c.data.map(d=>`<span>${d[0]}</span>`).join('')}</div>`);
+  }
+});
+
+/* ---------- columns chips ---------- */
+const cols=[['VIN (1-10)','primeiros 10 caracteres do número de chassi'],['County','condado onde o veículo está registrado'],['City','cidade de registro'],['State','estado de registro'],['Postal Code','CEP do proprietário'],['Legislative District','distrito legislativo estadual'],['Vehicle Location','coordenadas geográficas (ponto)'],['2020 Census Tract','setor censitário do censo de 2020'],['Make','fabricante (Tesla, Nissan...)'],['Model','modelo do veículo'],['Model Year','ano do modelo'],['Electric Vehicle Type','BEV (100% bateria) ou PHEV (híbrido plug-in)'],['Electric Range','autonomia só no modo elétrico, em milhas'],['Base MSRP','preço base sugerido pelo fabricante'],['Clean Alternative Fuel Vehicle (CAFV) Eligibility','elegibilidade a incentivos de combustível limpo'],['Electric Utility','concessionária de energia que atende o endereço'],['DOL Vehicle ID','ID único no Departamento de Licenciamento']];
+$('#chips').innerHTML=cols.map(([c,d],i)=>`<span class="chip" data-i="${i}">${c.toUpperCase()}</span>`).join('');
+$$('.chip').forEach(ch=>ch.addEventListener('mouseenter',()=>{
+  $$('.chip').forEach(x=>x.classList.remove('sel'));ch.classList.add('sel');
+  const [c,d]=cols[ch.dataset.i];$('#chipInfo').innerHTML=`<b>${c}</b> → ${d}`;
+}));
+
+/* ---------- donut ---------- */
+const C=2*Math.PI*78, bevP=76.93;
+const dB=$('#dBev'), dP=$('#dPhev');
+function donut(on){
+  dB.style.strokeDasharray=on?`${C*bevP/100-2} ${C}`:`0 ${C}`;
+  dP.style.strokeDasharray=on?`${C*(100-bevP)/100-2} ${C}`:`0 ${C}`;
+  dP.style.strokeDashoffset=on?-(C*bevP/100):0;
+}
+function hl(k){
+  const bev=k==='bev';
+  $('#dVal').textContent=bev?'76,93%':'23,07%';
+  $('#dLbl').textContent=bev?'BEV · 103.882':'PHEV · 31.156';
+  dB.classList.toggle('hl',bev);dP.classList.toggle('hl',!bev);
+  $$('.lg').forEach(l=>l.classList.toggle('hl',l.dataset.k===k));
+}
+dB.onmouseenter=dB.onclick=()=>hl('bev');dP.onmouseenter=dP.onclick=()=>hl('phev');
+$$('.lg').forEach(l=>l.onmouseenter=l.onclick=()=>hl(l.dataset.k));
+
+/* ---------- count up ---------- */
+function countUp(scope){
+  scope.querySelectorAll('[data-count]').forEach(el=>{
+    const end=+el.dataset.count,d=+(el.dataset.dec||0),suf=el.dataset.suf||'',t0=performance.now(),dur=1500,delay=500;
+    el.textContent=fmt(0,d)+suf;
+    const step=t=>{const p=Math.min(Math.max((t-t0-delay)/dur,0),1),e=1-Math.pow(1-p,3);
+      el.textContent=fmt(end*e,d)+suf;if(p<1)requestAnimationFrame(step)};
+    requestAnimationFrame(step);
+  });
+}
+
+/* ---------- navigation ---------- */
+const slides=$$('.slide'), N=slides.length;
+let cur=-1;
+$('#dots').innerHTML=slides.map((_,i)=>`<i data-i="${i}"></i>`).join('');
+$$('#dots i').forEach(d=>d.onclick=()=>go(+d.dataset.i));
+function go(n){
+  n=Math.max(0,Math.min(N-1,n)); if(n===cur)return;
+  const prev=cur; cur=n;
+  slides.forEach((s,i)=>{s.classList.toggle('active',i===n);s.classList.toggle('left',i<n);if(i!==n)s.classList.remove('on')});
+  const s=slides[n]; void s.offsetWidth; s.classList.add('on');
+  countUp(s); donut(false); if(s.contains(dB)){setTimeout(()=>donut(true),500);hl('bev')}
+  $('#counter').textContent=`${n+1} / ${N}`;
+  $$('#dots i').forEach((d,i)=>d.classList.toggle('on',i===n));
+  $('#progress').style.width=((n+1)/N*100)+'%';
+  history.replaceState(null,'','#'+(n+1));
+  volti.update(n,prev);
+}
+$('#next').onclick=()=>go(cur+1);$('#prev').onclick=()=>go(cur-1);
+$$('.q').forEach(q=>q.onclick=()=>go(+q.dataset.go));
+function fullscreen(){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.()}
+$('#fs').onclick=fullscreen;
+document.addEventListener('keydown',e=>{
+  if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();go(cur+1)}
+  else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){e.preventDefault();go(cur-1)}
+  else if(e.key==='Home')go(0);else if(e.key==='End')go(N-1);
+  else if(e.key.toLowerCase()==='f')fullscreen();
+  else if(e.key.toLowerCase()==='a')volti.toggle();
+  else if(/^[1-9]$/.test(e.key))go(+e.key-1);
+});
+let tx=null;
+addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+addEventListener('touchend',e=>{if(tx===null)return;const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50)go(cur+(dx<0?1:-1));tx=null});
+
+/* ---------- scale stage ---------- */
+function fit(){const s=Math.min(innerWidth/1600,innerHeight/900);$('#stage').style.transform=`translate(-50%,-50%) scale(${s})`}
+addEventListener('resize',fit);fit();
+
+/* idle controls */
+let idleT;function wake(){$('#controls').classList.remove('idle');$('#help').style.opacity=1;clearTimeout(idleT);idleT=setTimeout(()=>{$('#controls').classList.add('idle');$('#help').style.opacity=0},3000)}
+addEventListener('mousemove',wake);wake();
+
+/* ---------- Volti ---------- */
+const volti=(()=>{
+  const root=$('#volti'),bot=$('#bot'),bubble=$('#bubble'),say=$('#say'),charge=$('#charge'),pct=$('#pct'),mouth=$('#mouth');
+  const facts=[
+    'Curiosidade: só a Tesla tem 61.808 carros — 45,8% da base inteira!',
+    'King County concentra 70.842 veículos. É mais da metade da base! 😮',
+    '42% dos veículos ainda estão com elegibilidade CAFV "sob pesquisa".',
+    'A autonomia média mais que dobrou de 2015 pra 2020: 97,5 → 242,4 milhas.',
+    'Seattle sozinha tem 23.489 EVs, uns 17% de tudo.',
+    'Jaguar e Polestar quase empatam em autonomia: 234 vs 233 milhas.',
+    'Dica: aperta F pra tela cheia e ← → pra navegar. A esconde eu 🙈'
+  ];
+  let typing,fi=0,hideT;
+  function talk(txt){
+    clearInterval(typing);clearTimeout(hideT);bubble.classList.remove('out');
+    let i=0;say.textContent='';
+    typing=setInterval(()=>{say.textContent=txt.slice(0,++i);if(i>=txt.length)clearInterval(typing)},22);
+  }
+  function hop(cls='jump'){bot.classList.remove('jump','party');void bot.offsetWidth;bot.classList.add(cls)}
+  function sparks(){
+    const r=bot.getBoundingClientRect(),cols=['#c8ff3a','#3fd9ff','#3b6dff','#fff','#ffb03a'];
+    for(let i=0;i<40;i++){const s=document.createElement('i');s.className='spark';
+      s.style.left=r.left+r.width/2+'px';s.style.top=r.top+20+'px';s.style.background=cols[i%5];
+      s.style.setProperty('--x',(Math.random()-.5)*500+'px');s.style.setProperty('--y',(-Math.random()*400-60)+'px');
+      document.body.appendChild(s);setTimeout(()=>s.remove(),1500)}
+  }
+  function update(n){
+    const lv=(n+1)/N;
+    charge.style.transform=`scaleY(${lv})`;
+    charge.style.fill=lv<.34?'#ffb03a':lv<.67?'#3fd9ff':'#c8ff3a';
+    pct.textContent=Math.round(lv*100)+'%';
+    const end=n===N-1;
+    mouth.setAttribute('d',end?'M44 110 Q55 126 66 110 Z':'M46 112 Q55 120 64 112');
+    mouth.setAttribute('fill',end?'#0a1230':'none');
+    talk(slides[n].dataset.say);
+    if(end){hop('party');setTimeout(sparks,200)}else hop();
+  }
+  bot.addEventListener('click',()=>{talk(facts[fi++%facts.length]);hop()});
+  $('#bubble .x').onclick=e=>{e.stopPropagation();bubble.classList.add('out')};
+  // eyes follow cursor
+  addEventListener('mousemove',e=>{
+    const r=bot.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height*.57;
+    const a=Math.atan2(e.clientY-cy,e.clientX-cx),d=Math.min(4,Math.hypot(e.clientX-cx,e.clientY-cy)/40);
+    const dx=Math.cos(a)*d,dy=Math.sin(a)*d;
+    $('#pl').setAttribute('transform',`translate(${dx} ${dy})`);$('#pr').setAttribute('transform',`translate(${dx} ${dy})`);
+  });
+  return{update,toggle:()=>root.classList.toggle('hidden')};
+})();
+$('#tgl').onclick=volti.toggle;
+
+/* start */
+const h=parseInt(location.hash.slice(1));
+go(h>=1&&h<=N?h-1:0);
+</script>
+</body>
+</html>
