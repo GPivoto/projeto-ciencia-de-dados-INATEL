@@ -1,10 +1,3 @@
-"""Análise exploratória completa da população de veículos elétricos (10 perguntas).
-
-O script reúne as análises completas e salva os gráficos em ``output/graficos``.
-Execute a partir de qualquer pasta com:
-    python src/main.py
-"""
-
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -12,12 +5,10 @@ import pandas as pd
 import seaborn as sns
 
 
-# Os caminhos partem da pasta do projeto, mesmo se o script for iniciado de outro lugar.
 PASTA_PROJETO = Path(__file__).resolve().parent.parent
 CAMINHO_CSV = PASTA_PROJETO / "data" / "Electric_Vehicle_Population_Data.csv"
 PASTA_GRAFICOS = PASTA_PROJETO / "output" / "graficos"
 
-# Nomes exatos das colunas usadas nas análises deste arquivo.
 COLUNA_TIPO = "Electric Vehicle Type"
 COLUNA_MARCA = "Make"
 COLUNA_ANO = "Model Year"
@@ -28,13 +19,11 @@ COLUNA_CONDADO = "County"
 
 
 def carregar_dados():
-    """Lê o CSV e prepara os campos usados nas análises deste arquivo."""
     if not CAMINHO_CSV.exists():
-        raise FileNotFoundError(f"Não encontrei o arquivo de dados: {CAMINHO_CSV}")
+        raise FileNotFoundError(f"Arquivo não encontrado: {CAMINHO_CSV}")
 
     dados = pd.read_csv(CAMINHO_CSV, low_memory=False)
 
-    # Conferimos as colunas essenciais logo no início.
     colunas_necessarias = {
         COLUNA_TIPO,
         COLUNA_MARCA,
@@ -44,9 +33,8 @@ def carregar_dados():
     }
     faltantes = colunas_necessarias.difference(dados.columns)
     if faltantes:
-        raise ValueError(f"Colunas esperadas não encontradas no CSV: {sorted(faltantes)}")
+        raise ValueError(f"Colunas ausentes no CSV: {sorted(faltantes)}")
 
-    # Remover espaços em branco para padronizar categorias de texto.
     for coluna in (COLUNA_TIPO, COLUNA_MARCA, COLUNA_CIDADE):
         if coluna in dados.columns:
             dados[coluna] = dados[coluna].astype("string").str.strip()
@@ -64,23 +52,17 @@ def carregar_dados():
 
 
 def salvar_grafico(nome_arquivo):
-    """Padroniza a saída dos gráficos e fecha a figura após salvá-la."""
     PASTA_GRAFICOS.mkdir(parents=True, exist_ok=True)
     caminho = PASTA_GRAFICOS / nome_arquivo
     plt.tight_layout()
     plt.savefig(caminho, dpi=160, bbox_inches="tight")
     plt.close()
-    print(f"Gráfico salvo em: {caminho.relative_to(PASTA_PROJETO)}")
+    print(f"Salvo: {caminho.relative_to(PASTA_PROJETO)}")
 
-
-# ==========================================
-# AS 5 PERGUNTAS PRINCIPAIS (PARA A APRESENTAÇÃO)
-# ==========================================
 
 def analisar_marcas(dados):
-    """Pergunta 1: quais cinco marcas aparecem mais na base?"""
     contagem = dados[COLUNA_MARCA].dropna().value_counts().head(5).sort_values()
-    print("\n1) Cinco marcas com mais veículos registrados:")
+    print("\n1) Top 5 marcas:")
     print(contagem.sort_values(ascending=False).to_string())
 
     plt.figure(figsize=(9, 5))
@@ -92,10 +74,9 @@ def analisar_marcas(dados):
 
 
 def analisar_tipos(dados):
-    """Pergunta 2: qual é a participação de BEV e PHEV na frota?"""
     contagem = dados[COLUNA_TIPO].dropna().value_counts()
     proporcao = contagem / contagem.sum() * 100
-    print("\n2) Proporção dos tipos de veículo:")
+    print("\n2) Proporção de tipos:")
     for tipo, percentual in proporcao.items():
         print(f"{tipo}: {percentual:.2f}% ({contagem[tipo]:,} veículos)")
 
@@ -113,10 +94,8 @@ def analisar_tipos(dados):
 
 
 def analisar_anos_modelo(dados):
-    """Pergunta 3: como varia o volume por ano de fabricação do modelo?"""
     base = dados.dropna(subset=[COLUNA_ANO]).copy()
     if base.empty:
-        print("\n3) Não há anos de modelo válidos para analisar.")
         return
 
     base[COLUNA_ANO] = base[COLUNA_ANO].astype(int)
@@ -128,7 +107,7 @@ def analisar_anos_modelo(dados):
         .sort_index()
     )
     contagem = contagem.reindex(range(ano_inicial, ano_final + 1), fill_value=0)
-    print(f"\n3) Veículos por ano de modelo ({ano_inicial}–{ano_final}):")
+    print(f"\n3) Veículos por ano ({ano_inicial}–{ano_final}):")
     print(contagem.to_string())
 
     plt.figure(figsize=(10, 5))
@@ -141,15 +120,13 @@ def analisar_anos_modelo(dados):
 
 
 def analisar_autonomia(dados):
-    """Pergunta 4: a autonomia média muda conforme o ano do modelo?"""
     base = dados.dropna(subset=[COLUNA_ANO, COLUNA_AUTONOMIA]).copy()
     base = base.loc[base[COLUNA_AUTONOMIA] > 0]
     if base.empty:
-        print("\n4) Não há valores positivos de autonomia para analisar.")
         return
 
     media = base.groupby(COLUNA_ANO)[COLUNA_AUTONOMIA].mean().sort_index()
-    print("\n4) Autonomia elétrica média por ano de modelo:")
+    print("\n4) Autonomia média por ano:")
     print(media.round(1).to_string())
 
     plt.figure(figsize=(10, 5))
@@ -162,9 +139,8 @@ def analisar_autonomia(dados):
 
 
 def analisar_cidades(dados):
-    """Pergunta 5: quais dez cidades concentram mais veículos na base?"""
     contagem = dados[COLUNA_CIDADE].dropna().value_counts().head(10).sort_values()
-    print("\n5) Dez cidades com mais veículos registrados:")
+    print("\n5) Top 10 cidades:")
     print(contagem.sort_values(ascending=False).to_string())
 
     plt.figure(figsize=(10, 6))
@@ -175,17 +151,11 @@ def analisar_cidades(dados):
     salvar_grafico("05_top_10_cidades.png")
 
 
-# ==========================================
-# AS OUTRAS 5 PERGUNTAS (PARA COMPLETAR AS 10)
-# ==========================================
-
 def analisar_cafv(dados):
-    """Pergunta 6: qual é a distribuição de elegibilidade para incentivos (CAFV)?"""
     if COLUNA_CAFV not in dados.columns:
-        print("\n6) Coluna CAFV Eligibility não encontrada.")
         return
     contagem = dados[COLUNA_CAFV].dropna().value_counts().sort_values()
-    print("\n6) Elegibilidade para incentivos de combustíveis limpos (CAFV):")
+    print("\n6) Elegibilidade CAFV:")
     print(contagem.sort_values(ascending=False).to_string())
 
     plt.figure(figsize=(10, 5))
@@ -197,15 +167,14 @@ def analisar_cafv(dados):
 
 
 def analisar_autonomia_por_tipo(dados):
-    """Pergunta 7: qual é a autonomia média por tipo de veículo (BEV vs PHEV)?"""
     base = dados.dropna(subset=[COLUNA_TIPO, COLUNA_AUTONOMIA]).copy()
     base = base.loc[base[COLUNA_AUTONOMIA] > 0]
     media = base.groupby(COLUNA_TIPO)[COLUNA_AUTONOMIA].mean()
-    print("\n7) Autonomia média por tipo de veículo elétrico:")
+    print("\n7) Autonomia média por tipo:")
     print(media.round(1).to_string())
 
     plt.figure(figsize=(8, 5))
-    sns.barplot(x=media.index, y=media.values, palette="Blues_d")
+    sns.barplot(x=media.index, y=media.values, hue=media.index, palette="Blues_d", legend=False)
     plt.title("Autonomia Média por Tipo de Veículo (BEV vs PHEV)")
     plt.xlabel("Tipo de Veículo")
     plt.ylabel("Autonomia Média (milhas)")
@@ -213,16 +182,14 @@ def analisar_autonomia_por_tipo(dados):
 
 
 def analisar_top_marcas_autonomia(dados):
-    """Pergunta 8: quais marcas possuem a maior autonomia média de bateria?"""
     base = dados.dropna(subset=[COLUNA_MARCA, COLUNA_AUTONOMIA]).copy()
     base = base.loc[base[COLUNA_AUTONOMIA] > 0]
-    # Filtra marcas com pelo menos 10 registros para evitar distorções estatísticas
     contagem_marcas = base[COLUNA_MARCA].value_counts()
     marcas_validas = contagem_marcas[contagem_marcas >= 10].index
     base_filtrada = base[base[COLUNA_MARCA].isin(marcas_validas)]
     
     media = base_filtrada.groupby(COLUNA_MARCA)[COLUNA_AUTONOMIA].mean().nlargest(10).sort_values()
-    print("\n8) Top 10 marcas com maior autonomia média de bateria:")
+    print("\n8) Top marcas por autonomia:")
     print(media.round(1).sort_values(ascending=False).to_string())
 
     plt.figure(figsize=(10, 5))
@@ -234,12 +201,10 @@ def analisar_top_marcas_autonomia(dados):
 
 
 def analisar_condados(dados):
-    """Pergunta 9: quais são os 5 principais condados com maior volume de elétricos?"""
     if COLUNA_CONDADO not in dados.columns:
-        print("\n9) Coluna County não encontrada.")
         return
     contagem = dados[COLUNA_CONDADO].dropna().value_counts().head(5).sort_values()
-    print("\n9) Top 5 condados com mais veículos registrados:")
+    print("\n9) Top 5 condados:")
     print(contagem.sort_values(ascending=False).to_string())
 
     plt.figure(figsize=(9, 5))
@@ -251,17 +216,15 @@ def analisar_condados(dados):
 
 
 def analisar_pico_recente(dados):
-    """Pergunta 10: qual ano recente (últimos 5 anos) registrou o maior volume de fabricação?"""
     base = dados.dropna(subset=[COLUNA_ANO]).copy()
     if base.empty:
-        print("\n10) Sem anos para analisar.")
         return
 
     base[COLUNA_ANO] = base[COLUNA_ANO].astype(int)
     ano_final = int(base[COLUNA_ANO].max())
     ano_inicial = ano_final - 4
     contagem = base.loc[base[COLUNA_ANO].between(ano_inicial, ano_final), COLUNA_ANO].value_counts().sort_index()
-    print(f"\n10) Volume de veículos fabricados nos últimos 5 anos ({ano_inicial}–{ano_final}):")
+    print(f"\n10) Pico de fabricação ({ano_inicial}–{ano_final}):")
     print(contagem.to_string())
 
     plt.figure(figsize=(8, 5))
@@ -275,8 +238,7 @@ def analisar_pico_recente(dados):
 def main():
     sns.set_theme(style="whitegrid")
     dados = carregar_dados()
-    print(f"Base carregada com sucesso: {len(dados):,} registros e {len(dados.columns)} colunas.")
-    print("Executando as análises para as 10 perguntas estratégicas...")
+    print(f"Base carregada: {len(dados):,} registros e {len(dados.columns)} colunas.")
 
     analisar_marcas(dados)
     analisar_tipos(dados)
@@ -289,7 +251,7 @@ def main():
     analisar_condados(dados)
     analisar_pico_recente(dados)
 
-    print(f"\nConcluído! Todos os 10 gráficos foram salvos em: {PASTA_GRAFICOS.relative_to(PASTA_PROJETO)}")
+    print(f"\nProcesso concluído. Gráficos salvos em: {PASTA_GRAFICOS.relative_to(PASTA_PROJETO)}")
 
 
 if __name__ == "__main__":
